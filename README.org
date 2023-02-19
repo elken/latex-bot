@@ -1,0 +1,22 @@
+#+title: LaTeX Compile Bot
+
+Very simple Discord bot to compile a given latex block with optional packages.
+
+[[file:.github/assets/demo.gif]]
+
+* Setup
+** Install
+Depends on the following tools:
+- tectonic
+- imagemagick
+- poppler-utils
+Install them through the package manager of whatever OS the bot runs on.
+
+** Run
+Run the latest uberjar, specifying the required keys through the environment:
+- =TOKEN=: The access token for the bot
+- =GUILD_ID=: The ID of the guild to run the command in
+- =APPLICATION_ID=: The ID of the application (needed to register the commands)
+
+* Usage
+Simply invoke =/latex-image= from the associated guild passing the latex as the first =input= argument, then any needed packages as the optional second argument as a comma-separated list
