@@ -12,21 +12,31 @@
    [discljord.messaging   :as m])
   (:gen-class))
 
+;; Global state atom for the bot. See the full schema in main where it's setup
 (defonce state (atom nil))
+
+;; Default template for the LaTeX response
 (def latex-body "\\documentclass{article}%s\\begin{document}%s\\end{document}")
 
+;; Creates the LaTeX body string from the input and extra packages
 (defn- create-latex-body [input extra-packages]
   (format
    latex-body
    (str/join "" (map #(format "\\usepackage{%s}" %) (str/split extra-packages #",")))
    input))
 
+;; Retrieves the value of an option from the options map
+;; For example, {:name "input" :value ""} would return "" for the "input" option
 (defn- get-option [option options]
   (->> options
        (filter #(= (:name %) option))
        first
        :value))
 
+;; Handles the ready event, creating the application command for the bot
+;; The command allows users to compile LaTeX input to an image and takes two options:
+;; - input: The LaTeX input to compile
+;; - extra-packages: A comma-separated list of extra packages to include (optional)
 (defn handle-ready
   [_event-type _event-data]
   (log/info
@@ -48,6 +58,9 @@
         :description "Comma-separated list of extra packages to include"}]})))
   (log/info "Connection ready"))
 
+;; Handles the latex-image interaction, compiling LaTeX input to an image
+;; Uses tectonic to compile LaTeX and pdftoppm to split into pages as the PDF doesn't
+;; handle them itself very well
 (defn handle-latex-image
   [options]
   (let [input (get-option "input" options)
@@ -60,9 +73,14 @@
       (log/info "Cropping to content" (sh/sh "convert" "page-1.png" "-trim" "+repage" "page-1.png"))
       [:file (fs/file (fs/path dir "page-1.png"))])))
 
+;; Maps interaction names to their corresponding handler functions
+;; Each handler function is called with the options map from the interaction data
 (def ^:private interaction-handlers
   {"latex-image" #'handle-latex-image})
 
+;; Handles incoming interactions, looking up the appropriate handler and calling it with the options
+;; event-data is the parsed JSON data from the interaction event, where id and
+;; token here are the interaction ID and token for the response
 (defn handle-interaction
   [_event-type {:keys [id token] :as event-data}]
   (when-let [handler (interaction-handlers (get-in event-data [:data :name]))]
@@ -74,6 +92,9 @@
      (ms/interaction-response-types :channel-message-with-source)
      (handler (get-in event-data [:data :options])))))
 
+;; Maps event types to their corresponding handler functions
+;; ready is fired when the bot is started up and registers the application command
+;; interaction-create is fired when an interaction event occurs, for our purposes all we care about is message
 (def ^:private handlers
   {:interaction-create [#'handle-interaction]
    :ready          [#'handle-ready]})
@@ -82,6 +103,9 @@
   (let [{:keys [token guild-id application-id]} (load-config)]
 
     (log/info "Starting bot...")
+    ;; Connects to the Discord API and starts the bot
+    ;; If the bot is not already connected, creates a new connection and event channel
+    ;; Resets the state to store all the data needed for the rest of the functionality
     (when (nil? @state)
       (let [event-channel (a/chan 100)
             bot-connection (c/connect-bot! token event-channel :intents #{:guilds :guild-messages})
